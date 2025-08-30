@@ -1,4 +1,4 @@
-# Homeタブの描画だけを担当
+# home.py
 def register_home(app):
     @app.event("app_home_opened")
     def on_home_opened(event, client, logger):
@@ -12,7 +12,7 @@ def register_home(app):
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": "*シェアハウス共同生活管理アプリ*\n最小構成が動いています！",
+                            "text": "*シェアハウス共同生活管理アプリ*\nがんばって機能を増やそう",
                         },
                     },
                     {"type": "divider"},
@@ -23,6 +23,11 @@ def register_home(app):
                                 "type": "button",
                                 "text": {"type": "plain_text", "text": "マニュアルを見る"},
                                 "action_id": "open_manuals",
+                            },
+                            {
+                                "type": "button",
+                                "text": {"type": "plain_text", "text": "在宅状況"},
+                                "action_id": "open_presence",
                             }
                         ],
                     },
@@ -30,7 +35,7 @@ def register_home(app):
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": "• 在宅トグル（近日）\n• 掃除チェック（近日）\n• マニュアル閲覧（今ここ）",
+                            "text": "• 掃除チェック（まだ）\n• あとなにいる？",
                         },
                     },
                 ],
