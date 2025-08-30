@@ -6,9 +6,9 @@ from dotenv import load_dotenv
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError  # ログ出力用（必要に応じて）
-
 from home import register_home  # house直下のファイルからインポート
 from manuals import register_manuals  # 同上
+from presence import register_presence
 
 # .env を読み込み
 load_dotenv()
@@ -33,6 +33,8 @@ def on_mention(event, say, logger):
 # 分割ハンドラを登録
 register_home(app)
 register_manuals(app)
+register_presence(app)
+
 
 # Socket Mode で起動
 if __name__ == "__main__":
