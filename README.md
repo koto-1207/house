@@ -32,9 +32,9 @@
 
 ５　pip Install
  pip install -r requirements.txt
-# うまくいかない時は:
-# python -m pip install -r requirements.txt
-# または macOS で: python3 -m pip install -r requirements.txt
+ うまくいかない時は:
+ python -m pip install -r requirements.txt
+ または macOS で: python3 -m pip install -r requirements.txt
 
 ６　slackのshare_houseチームで動作確認
 　１）任意のチャネルを作成
