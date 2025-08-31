@@ -7,9 +7,10 @@ from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError  # ログ出力用（必要に応じて）
 from home import register_home  # house直下のファイルからインポート
-from manuals import register_manuals  # 同上
+from manuals import register_manuals
 from presence import register_presence
 from splite_db_presence import init_db
+from events import register_events
 
 # .env を読み込み
 load_dotenv()
@@ -36,6 +37,7 @@ def on_mention(event, say, logger):
 register_home(app)
 register_manuals(app)
 register_presence(app)
+register_events(app)
 
 
 # Socket Mode で起動
