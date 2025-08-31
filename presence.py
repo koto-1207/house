@@ -103,3 +103,31 @@ def register_presence(app):
                 "type": "home", "blocks": build_home_blocks(client)
                 }
             )
+    
+    
+    @app.action("presence_quick_home")
+    def presence_quick_home(ack, body, client, logger):
+        _handle_quick_presence(ack, body, client, logger, status="home")
+
+    @app.action("presence_quick_away")
+    def presence_quick_away(ack, body, client, logger):
+        _handle_quick_presence(ack, body, client, logger, status="away")
+
+    def _handle_quick_presence(ack, body, client, logger, status: str):
+        ack()  # 先にACK
+        user_id = body["user"]["id"]
+        user_obj, _ = User.get_or_create(slack_user_id=user_id)
+        today_jst = datetime.now(ZoneInfo("Asia/Tokyo")).date()
+        now_utc = datetime.utcnow()
+
+        with db.atomic():
+            (PresenceLog
+             .insert(user=user_obj, date=today_jst, status=status, updated_at=now_utc)
+             .on_conflict(
+                 conflict_target=[PresenceLog.user, PresenceLog.date],
+                 update={PresenceLog.status: status, PresenceLog.updated_at: now_utc}
+             )
+             .execute())
+
+        # Home を即更新
+        client.views_publish(user_id=user_id, view={"type": "home", "blocks": build_home_blocks(client)})

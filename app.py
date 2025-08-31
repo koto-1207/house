@@ -8,6 +8,8 @@ from manuals import register_manuals
 from presence import register_presence
 from splite_db_presence import init_db
 from events import register_events
+from home_nav import register_nav
+
 
 # .env を読み込み
 load_dotenv()
@@ -35,7 +37,7 @@ register_home(app)
 register_manuals(app)
 register_presence(app)
 register_events(app)
-
+register_nav(app)
 
 # Socket Mode で起動
 if __name__ == "__main__":
