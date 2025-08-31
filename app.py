@@ -9,9 +9,11 @@ from slack_sdk.errors import SlackApiError  # ログ出力用（必要に応じ�
 from home import register_home  # house直下のファイルからインポート
 from manuals import register_manuals  # 同上
 from presence import register_presence
+from splite_db_presence import init_db
 
 # .env を読み込み
 load_dotenv()
+init_db()
 
 # 必須トークンを取得
 BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
