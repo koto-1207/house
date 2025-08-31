@@ -1,6 +1,7 @@
 # home.py
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+from splite_db_presence import PresenceLog
 
 
 def register_home(app):
@@ -11,6 +12,16 @@ def register_home(app):
         today_jst = datetime.now(tz).date()
         week_start = today_jst
         week_end = today_jst + timedelta(days=6)
+        rows = (PresenceLog.select(PresenceLog, PresenceLog.user).where(PresenceLog.date == today_jst))
+        label = {"home": "在宅🏠", "away": "外出🚶"}
+        lines = []
+        for r in rows:
+            uid = r.user.slack_user_id  # <@UXXXX> 用
+            line = f"・<@{uid}> — {label.get(r.status, r.status)}"
+            if r.note:
+                line += f"｜{r.note}"
+            lines.append(line)
+        presence_text = "\n".join(lines) if lines else "・まだ登録がありません"
         client.views_publish(
             user_id=user_id,
             view={
@@ -20,8 +31,8 @@ def register_home(app):
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": "*シェアハウス共同生活管理アプリ*\n機能を追加していく"
-                        }
+                            "text": "*シェアハウス共同生活管理アプリ*\n機能を追加していく",
+                        },
                     },
                     {"type": "divider"},
                     {
@@ -30,26 +41,26 @@ def register_home(app):
                             {
                                 "type": "button",
                                 "text": {"type": "plain_text", "text": "マニュアルを見る"},
-                                "action_id": "open_manuals"
+                                "action_id": "open_manuals",
                             },
                             {
                                 "type": "button",
                                 "text": {"type": "plain_text", "text": "在宅状況"},
-                                "action_id": "open_presence"
+                                "action_id": "open_presence",
                             },
                             {
                                 "type": "button",
                                 "text": {"type": "plain_text", "text": "予定を追加"},
-                                "action_id": "open_event_create"
-                            }
-                        ]
+                                "action_id": "open_event_create",
+                            },
+                        ],
                     },
                     {
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": "• 掃除チェック（まだ）\n• マニュアル閲覧／予定追加（今ここ）"
-                        }
+                            "text": "• 掃除チェック（まだ）\n• マニュアル閲覧／予定追加（今ここ）",
+                        },
                     },
                     {"type": "divider"},
                     {
@@ -57,17 +68,16 @@ def register_home(app):
                         "text": {
                             "type": "mrkdwn",
                             "text": f"*今日の在宅状況（{today_jst:%m/%d}）*\n"
-                                    f"・（ここに在宅状況一覧が入るといいな〜）"
-                        }
+                            f"・（ここに在宅状況一覧が入るといいな〜）",
+                        },
                     },
                     {
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": f"*今週の予定（{week_start:%m/%d} 〜 {week_end:%m/%d}）*\n"
-                                    f"・（ここに予定が入るといいな〜）"
-                        }
-                    }
+                            "text": f"*今日の在宅状況（{today_jst:%m/%d}）*\n{presence_text}"
+                        },
+                    },
                 ],
             },
         )
