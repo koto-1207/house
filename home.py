@@ -20,7 +20,7 @@ def register_home(app):
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": "*シェアハウス共同生活管理アプリ*\n最小構成が動いています！"
+                            "text": "*シェアハウス共同生活管理アプリ*\n機能を追加していく"
                         }
                     },
                     {"type": "divider"},
