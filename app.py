@@ -1,6 +1,3 @@
-# これから頑張ろう！！
-
-# app.py
 import os
 from dotenv import load_dotenv
 from slack_bolt import App
