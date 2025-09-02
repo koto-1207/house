@@ -19,7 +19,11 @@
                 "app_mentions:read",
                 "chat:write",
                 "files:write",
-                "reminders:write"
+                "reminders:write",
+                "channels:history",  
+                "groups:history",    
+                "im:history",        
+                "mpim:history"       
             ]
         }
     },
@@ -27,7 +31,11 @@
         "event_subscriptions": {
             "bot_events": [
                 "app_home_opened",
-                "app_mention"
+                "app_mention",
+                "message.channels",  
+                "message.groups",    
+                "message.im",        
+                "message.mpim"
             ]
         },
         "interactivity": {
