@@ -1,0 +1,14 @@
+.venv
+cat >> .gitignore <<'GI'
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+.env
+
+# OS / tools
+.DS_Store
+GI
+
