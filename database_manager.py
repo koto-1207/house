@@ -8,44 +8,58 @@ from manuals_data import manuals_data  # 分割したデータをインポート
 DATABASE_FILE = "manuals.db"
 
 KEYWORD_MAP = {
-    '捨': 'ごみ', '棄': 'ごみ',
-    '不燃': '燃やせないごみ', '可燃': '燃えるごみ',
-    '生ごみ': '燃えるごみ', '燃える': '燃えるごみ',
-    '燃やせない': '燃やせないごみ',
-    'ロック': '施錠', '閉める': '施錠',
-    '鍵忘れ': '鍵', 'インロック': '鍵',
-    '費用': '料金', '支払い': '料金', 'お金': '料金', '家賃': '料金',
-    '泊まる': '宿泊', '宿泊可': '宿泊', 'ゲスト': '宿泊',
-    '掃除': '清掃', 'ゴミ出し': 'ごみ出し',
-    'Wi-Fi': 'ネット', 'インターネット': 'ネット',
+    "捨": "ごみ",
+    "棄": "ごみ",
+    "不燃": "燃やせないごみ",
+    "可燃": "燃えるごみ",
+    "生ごみ": "燃えるごみ",
+    "燃える": "燃えるごみ",
+    "燃やせない": "燃やせないごみ",
+    "ロック": "施錠",
+    "閉める": "施錠",
+    "鍵忘れ": "鍵",
+    "インロック": "鍵",
+    "費用": "料金",
+    "支払い": "料金",
+    "お金": "料金",
+    "家賃": "料金",
+    "泊まる": "宿泊",
+    "宿泊可": "宿泊",
+    "ゲスト": "宿泊",
+    "掃除": "清掃",
+    "ゴミ出し": "ごみ出し",
+    "Wi-Fi": "ネット",
+    "インターネット": "ネット",
 }
+
 
 def init_db():
     """データベース初期化"""
     conn = sqlite3.connect(DATABASE_FILE)
     c = conn.cursor()
-    c.execute("""
+    c.execute(
+        """
         CREATE TABLE IF NOT EXISTS manuals (
             id INTEGER PRIMARY KEY,
             title TEXT NOT NULL,
             body TEXT NOT NULL,
             keywords TEXT
         )
-    """)
+    """
+    )
     conn.commit()
     conn.close()
+
 
 def insert_initial_data():
     """初期データ挿入"""
     conn = sqlite3.connect(DATABASE_FILE)
     c = conn.cursor()
     data_to_insert = [(m["title"], m["body"], m["keywords"]) for m in manuals_data]
-    c.executemany(
-        "INSERT OR IGNORE INTO manuals (title, body, keywords) VALUES (?, ?, ?)",
-        data_to_insert
-    )
+    c.executemany("INSERT OR IGNORE INTO manuals (title, body, keywords) VALUES (?, ?, ?)", data_to_insert)
     conn.commit()
     conn.close()
+
 
 def get_all_manuals():
     """全マニュアル取得"""
@@ -56,6 +70,7 @@ def get_all_manuals():
     conn.close()
     return rows
 
+
 def preprocess_query(query: str):
     """自然文から検索用キーワードを抽出"""
     query = re.sub(r"(について|教えて|知りたい|どうすれば)", "", query)
@@ -64,6 +79,7 @@ def preprocess_query(query: str):
         if key in query:
             query = query.replace(key, value)
     return query
+
 
 def search_manuals_by_keyword(query: str, threshold=75, max_results=5):
     """

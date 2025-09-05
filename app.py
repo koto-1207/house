@@ -9,7 +9,9 @@ from slack_sdk.errors import SlackApiError  # ログ出力用（必要に応じ�
 from home import register_home  # house直下のファイルからインポート
 from manuals import register_manuals  # 同上
 from presence import register_presence
+from manuals import register_manuals
 from database_manager import init_db, insert_initial_data, search_manuals_by_keyword
+from event_handlers import register_event_handlers
 
 # DB 初期化
 init_db()
@@ -65,50 +67,8 @@ def on_mention(event, say):
     say(text=f"{first_title} - {first_body}", blocks=blocks)
 
 
-@app.action("next_manual")
-def handle_next_manual(ack, body, client):
-    ack()
-    value = body["actions"][0]["value"]
-    index_str, query = value.split("|")
-    index = int(index_str) + 1  # 次の結果へ
-
-    results = search_manuals_by_keyword(query)
-
-    channel_id = body["channel"]["id"]
-    message_ts = body["message"]["ts"]
-
-    if index >= len(results):
-        client.chat_update(
-            channel=channel_id,
-            ts=message_ts,
-            text="これ以上の検索結果はありません。",
-            blocks=[]
-        )
-        return
-
-    title, body_text = results[index]
-    blocks = [
-        {"type": "section", "text": {"type": "mrkdwn", "text": f"*{title}*\n{body_text}"}},
-        {
-            "type": "actions",
-            "elements": [
-                {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "次の結果"},
-                    "action_id": "next_manual",
-                    "value": f"{index}|{query}",
-                }
-            ],
-        },
-    ]
-    client.chat_update(
-        channel=channel_id,
-        ts=message_ts,
-        text=f"{title} - {body_text}",
-        blocks=blocks
-    )
-
-
+# イベントハンドラ登録
+register_event_handlers(app)
 
 # 分割ハンドラを登録
 register_home(app)
