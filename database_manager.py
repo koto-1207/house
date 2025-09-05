@@ -34,7 +34,7 @@ KEYWORD_MAP = {
 
 
 def init_db():
-    """データベース初期化"""
+# データベース初期化
     conn = sqlite3.connect(DATABASE_FILE)
     c = conn.cursor()
     c.execute(
@@ -52,7 +52,7 @@ def init_db():
 
 
 def insert_initial_data():
-    """初期データ挿入"""
+    # 初期データ挿入
     conn = sqlite3.connect(DATABASE_FILE)
     c = conn.cursor()
     data_to_insert = [(m["title"], m["body"], m["keywords"]) for m in manuals_data]
@@ -62,7 +62,7 @@ def insert_initial_data():
 
 
 def get_all_manuals():
-    """全マニュアル取得"""
+    # 全マニュアル取得
     conn = sqlite3.connect(DATABASE_FILE)
     c = conn.cursor()
     c.execute("SELECT title, body, keywords FROM manuals")
@@ -72,7 +72,7 @@ def get_all_manuals():
 
 
 def preprocess_query(query: str):
-    """自然文から検索用キーワードを抽出"""
+    # 自然文から検索用キーワードを抽出
     query = re.sub(r"(について|教えて|知りたい|どうすれば)", "", query)
     query = re.sub(r"[ぁ-んァ-ヶー！？。、\s]+", "", query)
     for key, value in KEYWORD_MAP.items():
