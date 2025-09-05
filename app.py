@@ -25,7 +25,6 @@ if not BOT_TOKEN or not APP_TOKEN:
 app = App(token=BOT_TOKEN)
 
 
-
 # 動作確認用：メンションに挨拶
 @app.event("app_mention")
 def on_mention(event, say, client):
@@ -45,21 +44,45 @@ def on_mention(event, say, client):
                     {
                         "type": "button",
                         "text": {"type": "plain_text", "text": "お掃除チェック"},
-                        "action_id": "check_cleaning"
+                        "action_id": "check_cleaning",
                     }
-                ]
+                ],
             }
         ],
-        text="お掃除チェックを開始します"
+        text="お掃除チェックを開始します",
     )
 
-    # DMに「お掃除チェック」ボタンを送る
-    client.chat_postMessage(
-        channel=user,
-        blocks=[
+
+@app.event("app_home_opened")
+def update_home_view(event, client, logger):
+    user_id = event["user"]
+    logger.info(f"App Home opened by user {user_id}")
+
+    client.views_publish(
+    user_id=user_id,
+    view={
+        "type": "home",
+        "blocks": [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "*シェアハウス用共通管理アプリ*\nがんばって機能を作ります"
+                }
+            },
             {
                 "type": "actions",
                 "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "マニュアルをみる"},
+                        "action_id": "view_manuals"
+                    },
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "在宅状況"},
+                        "action_id": "check_presence"
+                    },
                     {
                         "type": "button",
                         "text": {"type": "plain_text", "text": "お掃除チェック"},
@@ -67,10 +90,9 @@ def on_mention(event, say, client):
                     }
                 ]
             }
-        ],
-        text="お掃除チェックを開始します"
-    )
-
+        ]
+    }
+)
 
 
 # 分割ハンドラを登録
