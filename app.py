@@ -9,7 +9,13 @@ from slack_sdk.errors import SlackApiError  # ログ出力用（必要に応じ�
 from home import register_home  # house直下のファイルからインポート
 from manuals import register_manuals  # 同上
 from presence import register_presence
-import database_manager
+from database_manager import init_db, insert_initial_data, search_manuals_by_keyword
+
+# DB 初期化
+init_db()
+insert_initial_data()
+# メンションの検索結果をユーザーごとに保持
+user_results = {}
 
 # .env を読み込み
 load_dotenv()
@@ -24,47 +30,90 @@ if not BOT_TOKEN or not APP_TOKEN:
 app = App(token=BOT_TOKEN)
 
 
-# ----------------- 修正されたメンションハンドラー -----------------
 @app.event("app_mention")
-def on_mention(event, say, logger):
-    import re
-
-    # メッセージ本文を取得し、メンション部分を除去
+def on_mention(event, say):
     text = event.get("text", "")
-    keyword = text.replace(f'<@{app.client.auth_test().get("user_id")}>', "").strip()
+    bot_user_id = app.client.auth_test().get("user_id")
+    query = text.replace(f"<@{bot_user_id}>", "").strip()
 
-    # 日本語のひらがな、記号、句読点などを取り除く
-    # 漢字とカタカナ、英数字のみを抽出
-    keyword = re.sub(r"[ぁ-んァ-ヶー！？。、\s]+", "", keyword)
-
-    # キーワードが空でないか確認
-    if not keyword:
-        say("こんにちは！何かお探しですか？キーワードを入力して私にメンションしてください。")
+    if not query:
+        say("こんにちは！キーワードを入力して私にメンションしてください。")
         return
 
-    # データベースを検索
-    results = database_manager.search_manuals_by_keyword(keyword)
+    results = search_manuals_by_keyword(query)
 
-    # 検索結果があれば返信
-    if results:
-        for title, body_text in results:
-            say(f"*{title}*\n{body_text}")
-    else:
-        say(f"'{keyword}' に一致するマニュアルは見つかりませんでした。")
+    if not results:
+        say(text=f"'{query}' に一致するマニュアルは見つかりませんでした。")
+        return
+
+    # 最初の結果を送信
+    first_title, first_body = results[0]
+    blocks = [
+        {"type": "section", "text": {"type": "mrkdwn", "text": f"*{first_title}*\n{first_body}"}},
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "次の結果"},
+                    "action_id": "next_manual",
+                    "value": f"0|{query}",
+                }
+            ],
+        },
+    ]
+    say(text=f"{first_title} - {first_body}", blocks=blocks)
 
 
-# -----------------------------------------------------------------
+@app.action("next_manual")
+def handle_next_manual(ack, body, client):
+    ack()
+    value = body["actions"][0]["value"]
+    index_str, query = value.split("|")
+    index = int(index_str) + 1  # 次の結果へ
+
+    results = search_manuals_by_keyword(query)
+
+    channel_id = body["channel"]["id"]
+    message_ts = body["message"]["ts"]
+
+    if index >= len(results):
+        client.chat_update(
+            channel=channel_id,
+            ts=message_ts,
+            text="これ以上の検索結果はありません。",
+            blocks=[]
+        )
+        return
+
+    title, body_text = results[index]
+    blocks = [
+        {"type": "section", "text": {"type": "mrkdwn", "text": f"*{title}*\n{body_text}"}},
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "次の結果"},
+                    "action_id": "next_manual",
+                    "value": f"{index}|{query}",
+                }
+            ],
+        },
+    ]
+    client.chat_update(
+        channel=channel_id,
+        ts=message_ts,
+        text=f"{title} - {body_text}",
+        blocks=blocks
+    )
+
+
+
 # 分割ハンドラを登録
 register_home(app)
 register_manuals(app)
 register_presence(app)
-
-# --- ここから追加 ---
-# アプリ起動時にデータベースを初期化し、初期データを挿入
-database_manager.init_db()
-database_manager.insert_initial_data()
-# --- ここまで追加 ---
-
 
 # Socket Mode で起動
 if __name__ == "__main__":
