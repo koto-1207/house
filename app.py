@@ -31,42 +31,6 @@ if not BOT_TOKEN or not APP_TOKEN:
 # アプリ本体（Botトークン）
 app = App(token=BOT_TOKEN)
 
-
-@app.event("app_mention")
-def on_mention(event, say):
-    text = event.get("text", "")
-    bot_user_id = app.client.auth_test().get("user_id")
-    query = text.replace(f"<@{bot_user_id}>", "").strip()
-
-    if not query:
-        say("こんにちは！キーワードを入力して私にメンションしてください。")
-        return
-
-    results = search_manuals_by_keyword(query)
-
-    if not results:
-        say(text=f"'{query}' に一致するマニュアルは見つかりませんでした。")
-        return
-
-    # 最初の結果を送信
-    first_title, first_body = results[0]
-    blocks = [
-        {"type": "section", "text": {"type": "mrkdwn", "text": f"*{first_title}*\n{first_body}"}},
-        {
-            "type": "actions",
-            "elements": [
-                {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "次の結果"},
-                    "action_id": "next_manual",
-                    "value": f"0|{query}",
-                }
-            ],
-        },
-    ]
-    say(text=f"{first_title} - {first_body}", blocks=blocks)
-
-
 # イベントハンドラ登録
 register_event_handlers(app)
 
