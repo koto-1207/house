@@ -22,13 +22,15 @@ def register_home(app):
                             {
                                 "type": "button",
                                 "text": {"type": "plain_text", "text": "マニュアルを見る"},
+                                # PDFのURL リンク貼り直せば更新可能
+                                "url": "https://drive.google.com/file/d/1t3riT_PCh5vqPKxbQNg82AsrVli2BRkf/view?usp=drive_link",
                                 "action_id": "open_manuals",
                             },
                             {
                                 "type": "button",
                                 "text": {"type": "plain_text", "text": "在宅状況"},
                                 "action_id": "open_presence",
-                            }
+                            },
                         ],
                     },
                     {

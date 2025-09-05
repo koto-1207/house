@@ -33,8 +33,8 @@ KEYWORD_MAP = {
 }
 
 
-def init_db():
 # データベース初期化
+def init_db():
     conn = sqlite3.connect(DATABASE_FILE)
     c = conn.cursor()
     c.execute(
