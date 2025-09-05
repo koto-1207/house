@@ -9,8 +9,7 @@ from slack_sdk.errors import SlackApiError  # ログ出力用（必要に応じ�
 from home import register_home  # house直下のファイルからインポート
 from manuals import register_manuals  # 同上
 from presence import register_presence
-from manuals import register_manuals
-from database_manager import init_db, insert_initial_data, search_manuals_by_keyword
+from database_manager import init_db, insert_initial_data
 from event_handlers import register_event_handlers
 
 # DB 初期化
