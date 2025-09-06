@@ -21,7 +21,7 @@ def register_bot_manuals(app):
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "1️⃣ botチャンネルを使って質問してください",
+                    "text": "1️⃣ botチャンネルを使って質問してください。",
                 },
             },
             {
