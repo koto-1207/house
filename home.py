@@ -2,7 +2,7 @@
 # home.py
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from splite_db_presence import PresenceLog
+from sqlite_db_presence import PresenceLog
 from ui_builders import build_home_blocks
 
 

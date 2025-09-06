@@ -69,6 +69,22 @@ class Event(BaseModel):
         indexes = ((("start_at",), False),)  # 検索用に時刻へインデックス
 
 
+# cleaning_logs（掃除の記録）
+class CleaningLog(BaseModel):
+    # PresenceLog と同じ方針で、User の主キーではなく slack_user_id に外部キーを張る
+    user = ForeignKeyField(User, to_field="slack_user_id", backref="cleaning_logs", on_delete="CASCADE")
+    location = CharField()  # 掃除箇所
+    note = TextField(null=True)  # 任意メモ
+    timestamp = DateTimeField(default=datetime.datetime.utcnow)  # 生成時刻（UTC naive）
+
+    class Meta:
+        table_name = "cleaning_logs"
+        indexes = (
+            (("timestamp",), False),
+            (("location",), False),
+        )
+
+
 def init_db():
     db.connect(reuse_if_open=True)
     # SQLiteの外部キーを有効化（念のため）

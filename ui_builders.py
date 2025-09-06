@@ -1,9 +1,9 @@
 # ui_builders.py
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time, date
 from zoneinfo import ZoneInfo
 from peewee import JOIN
 
-from splite_db_presence import User, PresenceLog, Event
+from sqlite_db_presence import User, PresenceLog, Event
 
 # ===== 定数 =====
 TZ_JST = ZoneInfo("Asia/Tokyo")
@@ -11,7 +11,7 @@ TZ_UTC = ZoneInfo("UTC")
 
 
 def _event_pk_value(ev):
-    return getattr(ev, Event._meta.primary_key.name)
+    return ev.get_id()
 
 
 def _to_utc_naive(dt_jst: datetime) -> datetime:
@@ -45,7 +45,7 @@ def _weekday_jp(d) -> str:
     return "月火水木金土日"[d.weekday()]
 
 
-def _fmt_range_from_utc_naive(start_utc_naive, end_utc_naive) -> tuple[str, str, datetime.date]:
+def _fmt_range_from_utc_naive(start_utc_naive, end_utc_naive) -> tuple[str, str, date]:
     s_jst = _utc_naive_to_jst(start_utc_naive)
     e_jst = _utc_naive_to_jst(end_utc_naive)
     return s_jst.strftime("%H:%M"), e_jst.strftime("%H:%M"), s_jst.date()
@@ -95,10 +95,7 @@ def _format_presence_text(rows: list[PresenceLog]) -> str:
 
 # Events（今週の予定）
 def _fetch_week_event_rows(week_start_jst, week_end_jst) -> list[Event]:
-    """
-    JST の [week_start 00:00, week_end+1 00:00) を UTC に変換して、その範囲の Event を取得。
-    """
-    # JST 範囲の下限・上限（上限は翌日 00:00）
+    # JST の [week_start 00:00, week_end+1 00:00)
     lower_jst = datetime.combine(week_start_jst, time(0, 0), tzinfo=TZ_JST)
     upper_jst = datetime.combine(week_end_jst + timedelta(days=1), time(0, 0), tzinfo=TZ_JST)
 
@@ -107,10 +104,13 @@ def _fetch_week_event_rows(week_start_jst, week_end_jst) -> list[Event]:
 
     rows = (
         Event.select(Event, User)
-        .join(
-            User, JOIN.LEFT_OUTER
+        .join(User, JOIN.LEFT_OUTER)
+        # ここだけ変更（AND 条件 → between に）
+        .where(
+            Event.start_at.between(
+                lower_utc_naive, upper_utc_naive - timedelta(microseconds=1)  # [lower, upper)
+            )
         )
-        .where((Event.start_at >= lower_utc_naive) & (Event.start_at < upper_utc_naive))
         .order_by(Event.start_at)
     )
     return list(rows)
@@ -188,15 +188,6 @@ def _build_event_blocks(rows: list[Event]) -> list[dict]:
         )
         blocks.append(
             {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"・{s_hm}-{e_hm}  {title}{created_by_part}{memo_part}{loc_part}",
-                },
-            }
-        )
-        blocks.append(
-            {
                 "type": "actions",
                 "elements": [
                     {
@@ -253,10 +244,17 @@ def build_home_blocks(client, week_offset_days: int = 0) -> list:
             "elements": [
                 {
                     "type": "button",
-                    "text": {"type": "plain_text", "text": "マニュアルを見る"},
+                    "text": {"type": "plain_text", "text": "📖 マニュアル"},
                     # PDFのURL リンク貼り直せば更新可能
                     "url": "https://drive.google.com/file/d/1t3riT_PCh5vqPKxbQNg82AsrVli2BRkf/view?usp=drive_link",
                     "action_id": "open_manuals",
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "📄 シェアハウス申請書"},
+                    # PDFのURL リンク貼り直せば更新可能
+                    "url": "https://drive.google.com/file/d/1bG5E1KUM27Sck_a7hMc4zkfhXeEFReDd/view?usp=sharing",
+                    "action_id": "open_form",
                 },
                 {
                     "type": "button",
@@ -267,32 +265,6 @@ def build_home_blocks(client, week_offset_days: int = 0) -> list:
                     "type": "button",
                     "text": {"type": "plain_text", "text": "予定を追加"},
                     "action_id": AID_OPEN_EVENT_CREATE,
-                },
-                {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "🧹 掃除チェック"},
-                    "action_id": "check_cleaning",
-                    "value": "open",
-                },
-            ],
-        },
-        {"type": "divider"},
-        {  # 在宅の見出し＋一覧
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": f"{presence_heading}\n{presence_text}"},
-        },
-    ]
-
-    blocks.insert(
-        1,
-        {
-            "type": "actions",
-            "elements": [
-                {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "📖 マニュアル"},
-                    "action_id": AID_MANUALS_OPEN,
-                    "value": "open",
                 },
                 {
                     "type": "button",
@@ -308,14 +280,19 @@ def build_home_blocks(client, week_offset_days: int = 0) -> list:
                 },
             ],
         },
-    )
-
-    blocks.append(
-        {
+        {"type": "divider"},
+        {  # 在宅の見出し＋一覧
             "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*今週の予定（{week_start:%m/%d} 〜 {week_end:%m/%d}）*"},
-        }
-    )
+            "text": {"type": "mrkdwn", "text": f"{presence_heading}\n{presence_text}"},
+        },
+    ]
+
+    # blocks.append(
+    #     {
+    #         "type": "section",
+    #         "text": {"type": "mrkdwn", "text": f"*今週の予定（{week_start:%m/%d} 〜 {week_end:%m/%d}）*"},
+    #     }
+    # )
 
     blocks.append(
         {

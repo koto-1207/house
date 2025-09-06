@@ -1,7 +1,7 @@
 # events.py
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from splite_db_presence import db, User, Event
+from sqlite_db_presence import db, User, Event
 
 JST = ZoneInfo("Asia/Tokyo")
 UTC = ZoneInfo("UTC")
@@ -20,14 +20,14 @@ def _initials_for_edit(ev) -> tuple[str, str, str]:
     return s.strftime("%Y-%m-%d"), s.strftime("%H:%M"), e.strftime("%H:%M")
 
 
-def _event_pk_field():
-    """Event の主キー Field を返す（id 固定ではない環境対応）"""
-    return Event._meta.primary_key
+def _ev_pk(ev):
+    """Eventインスタンスの主キー値を返す（公開APIのみ使用）"""
+    return ev.get_id()
 
 
 def _event_pk_value(ev) -> str:
     """インスタンスから主キー値を取り出す"""
-    return getattr(ev, _event_pk_field().name)
+    return ev.get_id()
 
 
 def build_event_create_modal_view() -> dict:
@@ -89,7 +89,7 @@ def build_event_edit_modal_view(ev) -> dict:
     return {
         "type": "modal",
         "callback_id": "event_edit_modal",
-        "private_metadata": str(_event_pk_value(ev)),
+        "private_metadata": str(_ev_pk(ev)),
         "title": {"type": "plain_text", "text": "予定を編集"},
         "submit": {"type": "plain_text", "text": "保存"},
         "close": {"type": "plain_text", "text": "閉じる"},
@@ -213,7 +213,7 @@ def register_events(app):
     def on_event_edit(ack, body, client, logger):
         ack()
         event_pk = int(body["actions"][0]["value"])
-        pk_field = _event_pk_field()
+        pk_field = _ev_pk(event_pk)
         ev = Event.get_or_none(pk_field == event_pk)
         if not ev:
             return
@@ -226,7 +226,7 @@ def register_events(app):
         user_id = body["user"]["id"]
         state = body["view"]["state"]["values"]
         event_pk = int(body["view"]["private_metadata"])
-        pk_field = _event_pk_field()
+        pk_field = _ev_pk(event_pk)
 
         title = state["title_block"]["event_title"]["value"]
         date_str = state["date_block"]["event_date"]["selected_date"]
@@ -283,7 +283,7 @@ def register_events(app):
         ack()
         user_id = body["user"]["id"]
         event_pk = int(body["actions"][0]["value"])
-        pk_field = _event_pk_field()
+        pk_field = _ev_pk(event_pk)
         with db.atomic():
             Event.delete().where(pk_field == event_pk).execute()  # ← 主キーで DELETE
 
