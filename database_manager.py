@@ -81,7 +81,7 @@ def preprocess_query(query: str):
     return query
 
 
-def search_manuals_by_keyword(query: str, threshold=75, max_results=5):
+def search_manuals_by_keyword(query: str, threshold=60, max_results=5):
     """
     fuzzy検索でマニュアルを取得
     - タイトル＋キーワードを優先、本文は補助的に使用
