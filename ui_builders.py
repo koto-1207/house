@@ -3,7 +3,6 @@ from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
 from peewee import JOIN
 
-# 例：splite_db_presence.py に User / PresenceLog / Event がある想定
 from splite_db_presence import User, PresenceLog, Event
 
 # ===== 定数 =====
@@ -11,10 +10,13 @@ TZ_JST = ZoneInfo("Asia/Tokyo")
 TZ_UTC = ZoneInfo("UTC")
 
 
+def _event_pk_value(ev):
+    return getattr(ev, Event._meta.primary_key.name)
+
+
 def _to_utc_naive(dt_jst: datetime) -> datetime:
     """JSTのaware datetimeをUTC naive（tzinfo=None）に変換"""
     if dt_jst.tzinfo is None:
-        # 念のため。naiveで来たらJSTとして扱う
         dt_jst = dt_jst.replace(tzinfo=TZ_JST)
     return dt_jst.astimezone(TZ_UTC).replace(tzinfo=None)
 
@@ -24,10 +26,13 @@ def _utc_naive_to_jst(dt_utc_naive: datetime) -> datetime:
     return dt_utc_naive.replace(tzinfo=TZ_UTC).astimezone(TZ_JST)
 
 
-# action_id を定数化（typo防止）
 AID_OPEN_MANUALS = "open_manuals"
 AID_OPEN_PRESENCE = "open_presence"
 AID_OPEN_EVENT_CREATE = "open_event_create"
+
+AID_MANUALS_OPEN = "manuals_open"
+AID_CLEANING_OPEN = "cleaning_open"
+AID_CLEANING_HISTORY = "cleaning_history"
 
 
 def _ellipsis(s: str | None, limit: int = 30) -> str:
@@ -73,7 +78,6 @@ def _format_presence_text(rows: list[PresenceLog]) -> str:
         if uid not in latest_by_user:
             latest_by_user[uid] = r
 
-    # ステータス→名前順に並べる
     def sort_key(item):
         uid, r = item
         status_order = 0 if r.status == "home" else 1
@@ -105,11 +109,8 @@ def _fetch_week_event_rows(week_start_jst, week_end_jst) -> list[Event]:
         Event.select(Event, User)
         .join(
             User, JOIN.LEFT_OUTER
-        )  # Event.created_by が User FK（to_field=slack_user_id or id どちらでもOK）
-        .where(
-            (Event.start_at >= lower_utc_naive) &
-            (Event.start_at < upper_utc_naive)
         )
+        .where((Event.start_at >= lower_utc_naive) & (Event.start_at < upper_utc_naive))
         .order_by(Event.start_at)
     )
     return list(rows)
@@ -187,6 +188,15 @@ def _build_event_blocks(rows: list[Event]) -> list[dict]:
         )
         blocks.append(
             {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"・{s_hm}-{e_hm}  {title}{created_by_part}{memo_part}{loc_part}",
+                },
+            }
+        )
+        blocks.append(
+            {
                 "type": "actions",
                 "elements": [
                     {
@@ -194,14 +204,14 @@ def _build_event_blocks(rows: list[Event]) -> list[dict]:
                         "style": "primary",
                         "text": {"type": "plain_text", "text": "編集✏️"},
                         "action_id": "event_edit_btn",
-                        "value": str(ev.id),
+                        "value": str(_event_pk_value(ev)),  # ← ここを修正
                     },
                     {
                         "type": "button",
                         "style": "danger",
                         "text": {"type": "plain_text", "text": "削除🗑"},
                         "action_id": "event_delete_btn",
-                        "value": str(ev.id),
+                        "value": str(_event_pk_value(ev)),  # ← ここも修正
                         "confirm": {
                             "title": {"type": "plain_text", "text": "削除の確認"},
                             "text": {"type": "mrkdwn", "text": f"*{title}* を削除します。よろしいですか？"},
@@ -220,21 +230,18 @@ def _build_event_blocks(rows: list[Event]) -> list[dict]:
 def build_home_blocks(client, week_offset_days: int = 0) -> list:
     today_actual = datetime.now(TZ_JST).date()
 
-    # 週移動の基準（イベント表示はオフセットを反映）
     week_base = today_actual + timedelta(days=week_offset_days)
     week_start, week_end = week_base, week_base + timedelta(days=6)
 
-    # --- 在宅（今日固定） ---
     presence_rows = _fetch_today_presence_rows(today_actual)
     home_n = sum(1 for r in presence_rows if getattr(r, "status", "") == "home")
     away_n = sum(1 for r in presence_rows if getattr(r, "status", "") == "away")
     presence_heading = f"*今日の在宅状況（{today_actual:%m/%d}）*　{home_n}在宅 / {away_n}外出"
     presence_text = _format_presence_text(presence_rows)
 
-    # --- イベント（週オフセット反映） ---
     event_rows = _fetch_week_event_rows(week_start, week_end)
     events_text = _format_events_text(event_rows)
-    # ① まず blocks を作る
+
     blocks = [
         {
             "type": "section",
@@ -247,7 +254,9 @@ def build_home_blocks(client, week_offset_days: int = 0) -> list:
                 {
                     "type": "button",
                     "text": {"type": "plain_text", "text": "マニュアルを見る"},
-                    "action_id": AID_OPEN_MANUALS,
+                    # PDFのURL リンク貼り直せば更新可能
+                    "url": "https://drive.google.com/file/d/1t3riT_PCh5vqPKxbQNg82AsrVli2BRkf/view?usp=drive_link",
+                    "action_id": "open_manuals",
                 },
                 {
                     "type": "button",
@@ -259,6 +268,12 @@ def build_home_blocks(client, week_offset_days: int = 0) -> list:
                     "text": {"type": "plain_text", "text": "予定を追加"},
                     "action_id": AID_OPEN_EVENT_CREATE,
                 },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "🧹 掃除チェック"},
+                    "action_id": "check_cleaning",
+                    "value": "open",
+                },
             ],
         },
         {"type": "divider"},
@@ -268,7 +283,33 @@ def build_home_blocks(client, week_offset_days: int = 0) -> list:
         },
     ]
 
-    # ② ここで “クイック在宅トグル” を追加（← 追加するならこのタイミング）
+    blocks.insert(
+        1,
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "📖 マニュアル"},
+                    "action_id": AID_MANUALS_OPEN,
+                    "value": "open",
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "🧹 掃除チェック"},
+                    "action_id": AID_CLEANING_OPEN,
+                    "value": "open",
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "🗂️ 掃除履歴"},
+                    "action_id": AID_CLEANING_HISTORY,
+                    "value": "open",
+                },
+            ],
+        },
+    )
+
     blocks.append(
         {
             "type": "section",
@@ -276,7 +317,6 @@ def build_home_blocks(client, week_offset_days: int = 0) -> list:
         }
     )
 
-    # ③ 今週の予定セクションを追加
     blocks.append(
         {
             "type": "section",
@@ -313,7 +353,6 @@ def build_home_blocks(client, week_offset_days: int = 0) -> list:
     )
     blocks.extend(_build_event_blocks(event_rows))
 
-    # ④ 最終更新の context を最後に
     rendered_at = datetime.now(TZ_JST)
     blocks.append(
         {

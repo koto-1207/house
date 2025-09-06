@@ -49,27 +49,23 @@ def register_presence(app):
 
     @app.view("presence_modal")
     def handle_presence_submission(ack, body, client, logger):
-        # ① ACK（必須）
+
         ack()
 
-        # ② 入力値
         user_id = body["user"]["id"]
         state = body["view"]["state"]["values"]
         status = state["status_block"]["presence_status"]["selected_option"]["value"]
         note = state.get("note_block", {}).get("presence_note", {}).get("value")
 
-        # ③ ユーザー確保
         user_obj, _ = User.get_or_create(slack_user_id=user_id)
 
-        # ④ 日付（JST）と現在時刻（UTC）
         today_jst = datetime.now(ZoneInfo("Asia/Tokyo")).date()
         now_utc = datetime.utcnow()
 
-        # ⑤ UPSERT
         with db.atomic():
             (
                 PresenceLog.insert(
-                    user=user_obj,  # ← インスタンスを渡すと安全
+                    user=user_obj,
                     date=today_jst,
                     status=status,
                     note=note,
@@ -86,13 +82,12 @@ def register_presence(app):
                 .execute()
             )
 
-        # ⑥ 成功通知（関数の中に！）
         try:
-            im = client.conversations_open(users=user_id)  # im:write が必要
+            im = client.conversations_open(users=user_id)
             channel_id = im["channel"]["id"]
         except SlackApiError as e:
             logger.error(f"[presence] conversations_open error: {e.response.get('error')}")
-            channel_id = user_id  # フォールバック（SlackbotのDMに出る）
+            channel_id = user_id
 
         client.chat_postMessage(
             channel=channel_id, text=f"在宅状況を更新しました：{'在宅' if status=='home' else '外出'}"
@@ -114,7 +109,7 @@ def register_presence(app):
         _handle_quick_presence(ack, body, client, logger, status="away")
 
     def _handle_quick_presence(ack, body, client, logger, status: str):
-        ack()  # 先にACK
+        ack()
         user_id = body["user"]["id"]
         user_obj, _ = User.get_or_create(slack_user_id=user_id)
         today_jst = datetime.now(ZoneInfo("Asia/Tokyo")).date()
@@ -128,6 +123,5 @@ def register_presence(app):
                  update={PresenceLog.status: status, PresenceLog.updated_at: now_utc}
              )
              .execute())
-
-        # Home を即更新
+             
         client.views_publish(user_id=user_id, view={"type": "home", "blocks": build_home_blocks(client)})
