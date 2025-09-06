@@ -28,7 +28,7 @@ def register_bot_manuals(app):
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "2️⃣ メンションで質問\n- チャンネルやDMで `@sharehouse-bot` と入力\n- 例: `@sharehouse-bot 掃除",
+                    "text": "2️⃣ メンションで質問\n- チャンネルやDMで `@sharehouse-bot` と入力\n- 例: `@sharehouse-bot` 掃除",
                 },
             },
             {
