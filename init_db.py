@@ -23,7 +23,7 @@ def create_tables():
                     name TEXT,
                     is_home BOOLEAN)''')
 
-    # 掃除ログのテーブル ← ここを追加！
+    # 掃除ログのテーブル
     c.execute('''CREATE TABLE IF NOT EXISTS cleaning_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     slack_user_id TEXT,

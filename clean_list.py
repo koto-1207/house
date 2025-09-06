@@ -7,14 +7,14 @@ import sqlite3
 
 CLEAN_LOCATIONS = [
     "キッチン",
-    "トイレ1階男",
-    "トイレ1階女",
-    "トイレ2階男",
-    "トイレ2階女",
-    "お風呂男",
-    "お風呂女",
-    "脱衣所男",
-    "脱衣所女",
+    "男子トイレ1階",
+    "女子トイレ1階",
+    "男子トイレ2階",
+    "女子トイレ2階",
+    "お風呂（男）",
+    "お風呂（女）",
+    "脱衣所（男）",
+    "脱衣所（女）",
     "広間",
     "廊下1階",
     "廊下2階",
@@ -28,7 +28,9 @@ def register_clean_list(app):
     @app.action("check_cleaning")
     def handle_cleaning_button(ack, body, client, logger):
         ack()
-        logger.info("check_cleaning ボタンが押されました")
+        print("✅ check_cleaning ボタンが押されました！")  # ← ここが確認ポイント
+
+        # logger.info("check_cleaning ボタンが押されました")##
 
         # 掃除箇所選択メニューをチャンネルに送信（DMが制限される場合の対策）
         channel_id = body.get("channel", {}).get("id") or body["user"]["id"]
