@@ -244,6 +244,11 @@ def build_home_blocks(client, week_offset_days: int = 0) -> list:
             "elements": [
                 {
                     "type": "button",
+                    "text": {"type": "plain_text", "text": "sharehouse-botの使い方"},
+                    "action_id": "AID_OPEN_SHAREHOUSE_BOT_MANUAL",
+                },
+                {
+                    "type": "button",
                     "text": {"type": "plain_text", "text": "📖 マニュアル"},
                     # PDFのURL リンク貼り直せば更新可能
                     "url": "https://drive.google.com/file/d/1t3riT_PCh5vqPKxbQNg82AsrVli2BRkf/view?usp=drive_link",

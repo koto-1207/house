@@ -1,3 +1,4 @@
+
 # manuals.py
 from typing import List, Dict, Any
 from slack_bolt import App
