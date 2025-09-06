@@ -236,7 +236,7 @@ def build_home_blocks(client, week_offset_days: int = 0) -> list:
     blocks = [
         {
             "type": "section",
-            "text": {"type": "mrkdwn", "text": "*シェアハウス共同生活管理アプリ*\nスパルタキャンプ頑張ろう❗️"},
+            "text": {"type": "mrkdwn", "text": "*シェアハウス共同生活管理アプリ*\nスパルタキャンプ最高❗️"},
         },
         {"type": "divider"},
         {
@@ -263,12 +263,12 @@ def build_home_blocks(client, week_offset_days: int = 0) -> list:
                 },
                 {
                     "type": "button",
-                    "text": {"type": "plain_text", "text": "在宅状況"},
+                    "text": {"type": "plain_text", "text": "🏠在宅状況"},
                     "action_id": AID_OPEN_PRESENCE,
                 },
                 {
                     "type": "button",
-                    "text": {"type": "plain_text", "text": "予定を追加"},
+                    "text": {"type": "plain_text", "text": "✏️予定を追加"},
                     "action_id": AID_OPEN_EVENT_CREATE,
                 },
                 {
