@@ -1,9 +1,9 @@
 # clean_list.py
 from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
-from peewee import JOIN
+from peewee import JOIN  # （未使用でも最小変更のため残置）
 
-from sqlite_db_presence import db, User, CleaningLog  # フォールバック
+from sqlite_db_presence import db, User, CleaningLog
 
 TZ_JST = ZoneInfo("Asia/Tokyo")
 TZ_UTC = ZoneInfo("UTC")
@@ -44,35 +44,55 @@ def _save_cleaning_log(user_id: str, location: str, note: str | None):
         CleaningLog.create(user=user_obj, location=location, note=(note or "").strip())
 
 
+# ==== 履歴取得（型ゆらぎに強い: Python側でフィルタ） ====
 def _fetch_logs(days: int | None, limit: int = 60):
     """
     CleaningLog を新しい順で取得。days=None は全期間。
-    DB保存はUTC naiveなので、JST日付での下限はUTCに変換してから検索。
+    ここでは DB の型揺れ対策として、取得後に Python 側で期間フィルタします。
     """
-    q = (
-        CleaningLog.select(CleaningLog, User)
-        .join(User, JOIN.LEFT_OUTER)
-        .order_by(CleaningLog.timestamp.desc())
-        .limit(limit)
-    )
+    q = CleaningLog.select().order_by(CleaningLog.timestamp.desc())
+    rows = list(q)
+
+    # "7"/"30"/"all" の混在に対応
+    _days: int | None = None
     if days is not None:
-        today_jst = datetime.now(TZ_JST).date()
-        since_jst = today_jst - timedelta(days=days - 1)
-        lower_jst = datetime.combine(since_jst, time(0, 0), tzinfo=TZ_JST)
-        lower_utc_naive = _to_utc_naive(lower_jst)
-        q = (
-        CleaningLog
-        .select()
-        .order_by(CleaningLog.timestamp.desc())
-        .limit(limit)
-        )
-    return list(q)
+        try:
+            _days = int(days)
+        except Exception:
+            _days = None
+
+    if _days and _days > 0:
+        since_jst_date = datetime.now(TZ_JST).date() - timedelta(days=_days - 1)
+
+        def _to_jst(ts_val):
+            if isinstance(ts_val, datetime):
+                dt = ts_val
+            elif isinstance(ts_val, (str, bytes)):
+                s = ts_val.decode("utf-8", "ignore") if isinstance(ts_val, bytes) else ts_val
+                s = s.strip()
+                if s.endswith("Z"):
+                    s = s[:-1] + "+00:00"
+                try:
+                    dt = datetime.fromisoformat(s)
+                except Exception:
+                    try:
+                        dt = datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
+                    except Exception:
+                        dt = datetime.utcnow()
+            else:
+                dt = datetime.utcnow()
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=TZ_UTC)
+            return dt.astimezone(TZ_JST)
+
+        rows = [r for r in rows if _to_jst(getattr(r, "timestamp", None)).date() >= since_jst_date]
+
+    return rows[:limit]
 
 
 def _fmt_log_line(row: CleaningLog) -> str:
     ts = row.timestamp
 
-    # 既存の時刻正規化（前回案と同じ）
     def _to_jst(ts_val):
         if isinstance(ts_val, datetime):
             dt = ts_val
@@ -89,10 +109,7 @@ def _fmt_log_line(row: CleaningLog) -> str:
                 except Exception:
                     dt = datetime.utcnow()
         else:
-            try:
-                dt = datetime.combine(ts_val, time(0, 0))
-            except Exception:
-                dt = datetime.utcnow()
+            dt = datetime.utcnow()
 
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=TZ_UTC)
@@ -100,9 +117,9 @@ def _fmt_log_line(row: CleaningLog) -> str:
 
     ts_jst = _to_jst(ts)
     label = ts_jst.strftime("%m/%d %H:%M")
-    uid = getattr(row.user, "slack_user_id", "") if row.user else ""
+    uid = getattr(row, "user", None)
+    uid = getattr(uid, "slack_user_id", "") if uid else ""
 
-    # ★ ここを修正：note を安全に文字列化してから strip
     def _to_text(v):
         if v is None:
             return ""
@@ -200,114 +217,121 @@ def _build_history_modal_empty() -> dict:
     }
 
 
+# === 掃除チェック用のモーダル ===
+def _build_cleaning_modal(user_id: str) -> dict:
+    """掃除箇所選択 + メモ入力を1枚のモーダルで"""
+    return {
+        "type": "modal",
+        "callback_id": "cleaning_log_modal",
+        "title": {"type": "plain_text", "text": "お掃除チェック"},
+        "submit": {"type": "plain_text", "text": "記録する"},
+        "close": {"type": "plain_text", "text": "閉じる"},
+        "private_metadata": user_id,
+        "blocks": [
+            {
+                "type": "input",
+                "block_id": "loc_block",
+                "label": {"type": "plain_text", "text": "掃除箇所"},
+                "element": {
+                    "type": "static_select",
+                    "action_id": "clean_location",
+                    "placeholder": {"type": "plain_text", "text": "選択してください"},
+                    "options": [
+                        {"text": {"type": "plain_text", "text": loc}, "value": loc} for loc in CLEAN_LOCATIONS
+                    ],
+                },
+            },
+            {
+                "type": "input",
+                "block_id": "note_block",
+                "optional": True,
+                "label": {"type": "plain_text", "text": "メモ（任意）"},
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": "note_input",
+                    "multiline": True,
+                    "placeholder": {"type": "plain_text", "text": "気づき・状態など"},
+                },
+            },
+        ],
+    }
+
+
 def register_clean_list(app):
-    # ★ 2) CleaningLog テーブルが無い環境でも安全に起動
+    # CleaningLog テーブルが無い環境でも安全に起動
     try:
         db.create_tables([CleaningLog])
     except Exception:
         pass
 
-    def _post_clean_select(client, channel_id):
-        blocks = [
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": "どこを掃除しましたか？"},
-                "accessory": {
-                    "type": "static_select",
-                    "action_id": "select_location",
-                    "placeholder": {"type": "plain_text", "text": "掃除箇所を選択"},
-                    "options": [
-                        {"text": {"type": "plain_text", "text": loc}, "value": loc} for loc in CLEAN_LOCATIONS
-                    ],
-                },
-            }
-        ]
-        client.chat_postMessage(channel=channel_id, blocks=blocks, text="掃除箇所を選んでください")
-
-    # ====== 掃除チェック ======
-    @app.action("check_cleaning")
-    def handle_cleaning_button(ack, body, client, logger):
+    # ====== 掃除チェック：Home ボタン → モーダルを開く ======
+    @app.action("cleaning_open")  # Home のボタン action_id
+    def handle_cleaning_open(ack, body, client, logger):
         ack()
-        # ★ 3) Home から押された場合は DM を開いてから投稿
         user_id = body["user"]["id"]
-        channel_id = (body.get("channel") or {}).get("id")
-        if not channel_id:
-            opened = client.conversations_open(users=user_id)
-            channel_id = opened["channel"]["id"]
+        client.views_open(trigger_id=body["trigger_id"], view=_build_cleaning_modal(user_id))
 
-        blocks = [
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": "どこを掃除しましたか？"},
-                "accessory": {
-                    "type": "static_select",
-                    "action_id": "select_location",
-                    "placeholder": {"type": "plain_text", "text": "掃除箇所を選択"},
-                    "options": [
-                        {"text": {"type": "plain_text", "text": loc}, "value": loc} for loc in CLEAN_LOCATIONS
-                    ],
-                },
-            }
-        ]
-        client.chat_postMessage(channel=channel_id, blocks=blocks, text="掃除箇所を選んでください")
-
-        # @メンションで「掃除」などを含むときも同じUIを出す
-
-    @app.event("app_mention")
-    def on_mention_clean(event, client, logger):
-        text = event.get("text", "")
-        if any(k in text for k in ("掃除チェック")):
-            channel_id = event["channel"]
-            _post_clean_select(client, channel_id)
-
-    @app.action("select_location")
-    def handle_location_selection(ack, body, client, logger):
+    @app.action("check_cleaning")  # 互換: 既存の action_id でも同じ挙動
+    def handle_check_cleaning_compat(ack, body, client, logger):
         ack()
-        location = body["actions"][0]["selected_option"]["value"]
         user_id = body["user"]["id"]
-        client.views_open(
-            trigger_id=body["trigger_id"],
+        client.views_open(trigger_id=body["trigger_id"], view=_build_cleaning_modal(user_id))
+
+    # ====== 掃除チェック：モーダル送信 ======
+    # 置き換え：@app.view("cleaning_log_modal") のハンドラ全体
+
+
+    @app.view("cleaning_log_modal")
+    def handle_cleaning_submit(ack, body, client, logger):
+        view = body.get("view", {})  # ★ view 以下に各値があります
+        user = body.get("user", {})  # 念のためフォールバック用
+        user_id = view.get("private_metadata") or user.get("id")  # ★ 修正
+        state = view.get("state", {}).get("values", {})  # ★ 修正
+
+        # 値を取り出し
+        loc_sel = state.get("loc_block", {}).get("clean_location", {}).get("selected_option")
+        note_val = state.get("note_block", {}).get("note_input", {}).get("value")
+
+        # バリデーション
+        errors = {}
+        if not loc_sel:
+            errors["loc_block"] = "掃除箇所を選択してください。"
+        if note_val and len(note_val) > 200:
+            errors["note_block"] = "メモは200文字以内にしてください。"
+
+        if errors:
+            ack(response_action="errors", errors=errors)
+            return
+
+        # 保存して完了画面に更新
+        try:
+            _save_cleaning_log(user_id, loc_sel["value"], (note_val or "").strip())
+        except Exception:
+            logger.exception("saving CleaningLog failed")
+
+        ack(
+            response_action="update",
             view={
                 "type": "modal",
-                "callback_id": "submit_cleaning_note",
-                "title": {"type": "plain_text", "text": "掃除メモ"},
-                "submit": {"type": "plain_text", "text": "記録する"},
-                "close": {"type": "plain_text", "text": "やめる"},
+                "callback_id": "cleaning_log_done",
+                "title": {"type": "plain_text", "text": "お掃除チェック"},
+                "close": {"type": "plain_text", "text": "閉じる"},
                 "blocks": [
                     {
-                        "type": "input",
-                        "block_id": "note_block",
-                        "optional": True,
-                        "element": {
-                            "type": "plain_text_input",
-                            "action_id": "note_input",
-                            "multiline": True,
-                            "placeholder": {"type": "plain_text", "text": "気づき・状態など（任意）"},
-                        },
-                        "label": {"type": "plain_text", "text": f"{location} の掃除メモ"},
-                    }
+                        "type": "section",
+                        "text": {"type": "mrkdwn", "text": "✅ 記録しました。ご協力ありがとうございます！"},
+                    },
+                    {"type": "section", "text": {"type": "mrkdwn", "text": f"*場所:* {loc_sel['value']}"}},
+                    (
+                        {"type": "section", "text": {"type": "mrkdwn", "text": f"*メモ:* {note_val.strip()}"}}
+                        if (note_val and note_val.strip())
+                        else {"type": "section", "text": {"type": "mrkdwn", "text": "_メモ: （なし）_"}}
+                    ),
                 ],
-                "private_metadata": f"{user_id}|{location}",
             },
         )
 
-    @app.view("submit_cleaning_note")
-    def handle_note_submission(ack, body, client, logger):
-        ack()
-        metadata = body["view"]["private_metadata"]
-        user_id, location = metadata.split("|", 1)
-        note = ""
-        try:
-            note = body["view"]["state"]["values"]["note_block"]["note_input"]["value"] or ""
-        except Exception:
-            pass
-        _save_cleaning_log(user_id, location, note)
-        client.chat_postMessage(
-            channel=user_id,
-            text=f"<@{user_id}> さんが *{location}* を掃除しました！🧼\n📝 メモ: {note or '（なし）'}",
-        )
-
-    # ====== 掃除履歴 ======
+    # ====== 掃除履歴（既存のモーダル遷移） ======
     @app.action("cleaning_history")
     def open_history_modal(ack, body, client, logger):
         ack()
@@ -315,12 +339,6 @@ def register_clean_list(app):
             client.views_open(trigger_id=body["trigger_id"], view=_build_history_modal_empty())
         except Exception as e:
             logger.exception("cleaning_history failed")
-            # エラー内容をDMでも通知（Homeからの押下でchannelが無い場合があるため）
-            try:
-                ch = client.conversations_open(users=body["user"]["id"])["channel"]["id"]
-                client.chat_postMessage(channel=ch, text=f"履歴モーダルでエラー: {e}")
-            except Exception:
-                pass
 
     @app.action("history_days_7")
     @app.action("history_days_30")
