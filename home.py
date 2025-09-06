@@ -33,7 +33,12 @@ def register_home(app):
                                 "type": "button",
                                 "text": {"type": "plain_text", "text": "お掃除チェック"},
                                 "action_id": "check_cleaning",
-                            }
+                            },
+                            {
+                                "type": "button",
+                                "text": {"type": "plain_text", "text": "お掃除履歴"},
+                                "action_id": "view_cleaning_logs",
+                            },
                         ],
                     },
                     {

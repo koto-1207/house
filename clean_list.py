@@ -64,6 +64,8 @@ def register_clean_list(app):
                     {
                         "type": "input",
                         "block_id": "note_block",
+                        "optional": True,  # メモを任意入力とする
+
                         "element": {
                             "type": "plain_text_input",
                             "action_id": "note_input",
