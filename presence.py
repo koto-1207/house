@@ -2,7 +2,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from slack_sdk.errors import SlackApiError  # ← 任意（ログ用）
-from splite_db_presence import db, User, PresenceLog
+from sqlite_db_presence import db, User, PresenceLog
 from ui_builders import build_home_blocks
 
 

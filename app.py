@@ -7,7 +7,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from home import register_home
 from manuals import register_manuals
 from presence import register_presence
-from splite_db_presence import init_db
+from sqlite_db_presence import init_db
 from events import register_events
 from home_nav import register_nav
 from event_handlers import register_event_handlers
