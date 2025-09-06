@@ -12,6 +12,7 @@ from events import register_events
 from home_nav import register_nav
 from event_handlers import register_event_handlers
 from clean_list import register_clean_list
+from sharehouse_bot_manusal import register_bot_manuals
 
 # .env を読み込み
 load_dotenv()
@@ -34,6 +35,7 @@ register_events(app)
 register_nav(app)
 register_event_handlers(app)  # ← メンション検索などをここに集約
 register_clean_list(app)
+register_bot_manuals(app)
 
 # Socket Mode で起動
 if __name__ == "__main__":
