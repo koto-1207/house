@@ -21,21 +21,28 @@ def register_bot_manuals(app):
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "1️⃣ メンションで質問\n- チャンネルやDMで `@sharehouse-bot` と入力\n- 例: `@sharehouse-bot` ゴミ ",
+                    "text": "1️⃣ botチャンネルを使って質問してください",
                 },
             },
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "2️⃣ 単語で検索\n- 入力内容から自動でキーワードを抽出して検索",
+                    "text": "2️⃣ メンションで質問\n- チャンネルやDMで `@sharehouse-bot` と入力\n- 例: `@sharehouse-bot 掃除",
                 },
             },
             {
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "3️⃣ 近い回答を返す\n- 内部データベース（MANUALS_DATA）から類似度の高い回答を提示",
+                    "text": "3️⃣ 単語で検索\n- 入力内容から自動でキーワードを抽出して検索",
+                },
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "4️⃣ 近い回答を返す\n- 内部データベース（MANUALS_DATA）から類似度の高い回答を提示",
                 },
             },
             {"type": "divider"},
@@ -43,7 +50,7 @@ def register_bot_manuals(app):
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": "💡 ポイント: 「単語」でルールや設備の情報を検索可能",
+                    "text": "💡 ポイント: もし結果が出ない場合は、別の単語でもお試しください🙇\n または、マニュアルをご確認いただけますと幸いです。",
                 },
             },
         ]
