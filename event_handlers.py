@@ -14,6 +14,10 @@ def register_event_handlers(app):
         # メンション部分を除去
         query = text.replace(f"<@{BOT_USER_ID}>", "").strip()
 
+        # 追加：掃除チェックはクエリから取り除く
+        if "掃除チェック" in query:
+            query = query.replace("掃除チェック", "").strip()
+
         if not query:
             say("こんにちは！ 検索したいキーワードをメンション付きで送ってください（例：`@bot ごみ出し`）。")
             return

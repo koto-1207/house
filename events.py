@@ -20,14 +20,16 @@ def _initials_for_edit(ev) -> tuple[str, str, str]:
     return s.strftime("%Y-%m-%d"), s.strftime("%H:%M"), e.strftime("%H:%M")
 
 
-def _ev_pk(ev):
-    """Eventインスタンスの主キー値を返す（公開APIのみ使用）"""
-    return ev.get_id()
+# ===== 主キーは Peewee の公開APIで扱う（_meta や id に触れない）=====
+def _ev_pk(ev) -> int:
+    """Eventインスタンスから主キー値(int)を取得"""
+    # Peewee Model は get_id() を持つ
+    return int(ev.get_id())
 
 
 def _event_pk_value(ev) -> str:
-    """インスタンスから主キー値を取り出す"""
-    return ev.get_id()
+    """ボタンの value / modal の private_metadata 用に主キー値を文字列化"""
+    return str(_ev_pk(ev))
 
 
 def build_event_create_modal_view() -> dict:
@@ -89,7 +91,7 @@ def build_event_edit_modal_view(ev) -> dict:
     return {
         "type": "modal",
         "callback_id": "event_edit_modal",
-        "private_metadata": str(_ev_pk(ev)),
+        "private_metadata": _event_pk_value(ev),  # 主キー値（文字列）
         "title": {"type": "plain_text", "text": "予定を編集"},
         "submit": {"type": "plain_text", "text": "保存"},
         "close": {"type": "plain_text", "text": "閉じる"},
@@ -158,7 +160,7 @@ def register_events(app):
 
     @app.view("event_create_modal")
     def handle_event_create(ack, body, client, logger):
-        from ui_builders import build_home_blocks
+        from ui_builders import build_home_blocks  # 循環参照回避のためローカルimport
 
         user_id = body["user"]["id"]
         state = body["view"]["state"]["values"]
@@ -211,13 +213,17 @@ def register_events(app):
 
     @app.action("event_edit_btn")
     def on_event_edit(ack, body, client, logger):
-        ack()
-        event_pk = int(body["actions"][0]["value"])
-        pk_field = _ev_pk(event_pk)
-        ev = Event.get_or_none(pk_field == event_pk)
-        if not ev:
-            return
-        client.views_open(trigger_id=body["trigger_id"], view=build_event_edit_modal_view(ev))
+        ack()  # 先にACK（必須）
+        try:
+            event_pk = int(body["actions"][0]["value"])  # ボタン value は文字列
+            try:
+                ev = Event.get_by_id(event_pk)
+            except Event.DoesNotExist:
+                logger.warning(f"event_edit_btn: Event not found (pk={event_pk})")
+                return
+            client.views_open(trigger_id=body["trigger_id"], view=build_event_edit_modal_view(ev))
+        except Exception:
+            logger.exception("event_edit_btn failed")
 
     @app.view("event_edit_modal")
     def handle_event_edit(ack, body, client, logger):
@@ -225,8 +231,7 @@ def register_events(app):
 
         user_id = body["user"]["id"]
         state = body["view"]["state"]["values"]
-        event_pk = int(body["view"]["private_metadata"])
-        pk_field = _ev_pk(event_pk)
+        event_pk = int(body["view"]["private_metadata"])  # 文字列→int
 
         title = state["title_block"]["event_title"]["value"]
         date_str = state["date_block"]["event_date"]["selected_date"]
@@ -259,20 +264,17 @@ def register_events(app):
             return
 
         ack()
-        with db.atomic():
-            (
-                Event.update(
-                    {
-                        Event.title: title.strip(),
-                        Event.start_at: start_utc,
-                        Event.end_at: end_utc,
-                        Event.location: (location.strip() if location else None),
-                        Event.memo: (memo.strip() if memo else None),
-                    }
-                )
-                .where(pk_field == event_pk)  # ← 主キーで UPDATE
-                .execute()
-            )
+        try:
+            with db.atomic():
+                ev = Event.get_by_id(event_pk)
+                ev.title = title.strip()
+                ev.start_at = start_utc
+                ev.end_at = end_utc
+                ev.location = location.strip() if location else None
+                ev.memo = memo.strip() if memo else None
+                ev.save()  # _meta/id に触れず保存
+        except Exception:
+            logger.exception("event_edit_modal: update failed")
 
         client.views_publish(user_id=user_id, view={"type": "home", "blocks": build_home_blocks(client)})
 
@@ -280,11 +282,12 @@ def register_events(app):
     def on_event_delete(ack, body, client, logger):
         from ui_builders import build_home_blocks
 
-        ack()
-        user_id = body["user"]["id"]
-        event_pk = int(body["actions"][0]["value"])
-        pk_field = _ev_pk(event_pk)
-        with db.atomic():
-            Event.delete().where(pk_field == event_pk).execute()  # ← 主キーで DELETE
-
-        client.views_publish(user_id=user_id, view={"type": "home", "blocks": build_home_blocks(client)})
+        ack()  # 先にACK
+        try:
+            user_id = body["user"]["id"]
+            event_pk = int(body["actions"][0]["value"])  # 文字列→int
+            with db.atomic():
+                Event.delete_by_id(event_pk)  # _meta/id を直接参照しない安全な削除
+            client.views_publish(user_id=user_id, view={"type": "home", "blocks": build_home_blocks(client)})
+        except Exception:
+            logger.exception("event_delete_btn failed")

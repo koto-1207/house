@@ -280,7 +280,7 @@ def build_home_blocks(client, week_offset_days: int = 0) -> list:
                 {
                     "type": "button",
                     "text": {"type": "plain_text", "text": "🗂️ 掃除履歴"},
-                    "action_id": AID_CLEANING_HISTORY,
+                    "action_id": "cleaning_history",
                     "value": "open",
                 },
             ],

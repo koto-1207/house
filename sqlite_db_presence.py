@@ -72,7 +72,14 @@ class Event(BaseModel):
 # cleaning_logs（掃除の記録）
 class CleaningLog(BaseModel):
     # PresenceLog と同じ方針で、User の主キーではなく slack_user_id に外部キーを張る
-    user = ForeignKeyField(User, to_field="slack_user_id", backref="cleaning_logs", on_delete="CASCADE")
+    user = ForeignKeyField(
+        User,
+        to_field="slack_user_id",
+        backref="cleaning_logs",
+        on_delete="CASCADE",
+        column_name="user_id"
+    )
+
     location = CharField()  # 掃除箇所
     note = TextField(null=True)  # 任意メモ
     timestamp = DateTimeField(default=datetime.datetime.utcnow)  # 生成時刻（UTC naive）
@@ -92,4 +99,4 @@ def init_db():
         db.execute_sql("PRAGMA foreign_keys=ON;")
     except Exception:
         pass
-    db.create_tables([User, PresenceLog, Event])
+    db.create_tables([User, PresenceLog, Event, CleaningLog])
