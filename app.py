@@ -59,40 +59,40 @@ def update_home_view(event, client, logger):
     logger.info(f"App Home opened by user {user_id}")
 
     client.views_publish(
-    user_id=user_id,
-    view={
-        "type": "home",
-        "blocks": [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "*シェアハウス用共通管理アプリ*\nがんばって機能を作ります"
-                }
-            },
-            {
-                "type": "actions",
-                "elements": [
-                    {
-                        "type": "button",
-                        "text": {"type": "plain_text", "text": "マニュアルをみる"},
-                        "action_id": "view_manuals"
-                    },
-                    {
-                        "type": "button",
-                        "text": {"type": "plain_text", "text": "在宅状況"},
-                        "action_id": "check_presence"
-                    },
-                    {
-                        "type": "button",
-                        "text": {"type": "plain_text", "text": "お掃除チェック"},
-                        "action_id": "check_cleaning"
+        user_id=user_id,
+        view={
+            "type": "home",
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "*シェアハウス用共通管理アプリ*\nがんばって機能を作ります"
                     }
-                ]
-            }
-        ]
-    }
-)
+                },
+                {
+                    "type": "actions",
+                    "elements": [
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "マニュアルをみる"},
+                            "action_id": "view_manuals"
+                        },
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "在宅状況"},
+                            "action_id": "check_presence"
+                        },
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "お掃除チェック"},
+                            "action_id": "check_cleaning"
+                        }
+                    ]
+                }
+            ]
+        }
+    )
 
 
 # 分割ハンドラを登録
