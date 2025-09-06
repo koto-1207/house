@@ -236,7 +236,7 @@ def build_home_blocks(client, week_offset_days: int = 0) -> list:
     blocks = [
         {
             "type": "section",
-            "text": {"type": "mrkdwn", "text": "*シェアハウス共同生活管理アプリ*\n機能を追加していく"},
+            "text": {"type": "mrkdwn", "text": "*シェアハウス共同生活管理アプリ*\nスパルタキャンプ頑張ろう❗️"},
         },
         {"type": "divider"},
         {
