@@ -2,3 +2,5 @@ slack_bolt>=1.18.0
 slack_sdk>=3.27.0
 python-dotenv>=1.0.1
 rapidfuzz>=3.14.0
+peewee>=3.18.2
+sqlalchemy>=2.0.43
