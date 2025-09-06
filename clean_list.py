@@ -128,19 +128,19 @@ def _build_history_blocks(days: int | None = 7) -> list[dict]:
                 {
                     "type": "button",
                     "text": {"type": "plain_text", "text": "過去7日"},
-                    "action_id": "history_set_days",
+                    "action_id": "history_days_7",
                     "value": "7",
                 },
                 {
                     "type": "button",
                     "text": {"type": "plain_text", "text": "過去30日"},
-                    "action_id": "history_set_days",
+                    "action_id": "history_days_30",
                     "value": "30",
                 },
                 {
                     "type": "button",
                     "text": {"type": "plain_text", "text": "全期間"},
-                    "action_id": "history_set_days",
+                    "action_id": "history_days_all",
                     "value": "all",
                 },
             ],
@@ -162,12 +162,67 @@ def _build_history_modal(days: int | None = 7) -> dict:
     }
 
 
+def _build_history_modal_empty() -> dict:
+    return {
+        "type": "modal",
+        "callback_id": "cleaning_history_modal",
+        "title": {"type": "plain_text", "text": "掃除履歴"},
+        "close": {"type": "plain_text", "text": "閉じる"},
+        "private_metadata": "init",
+        "blocks": [
+            {"type": "section", "text": {"type": "mrkdwn", "text": "*🗂️ 掃除履歴* — 期間を選んでください"}},
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "過去7日"},
+                        "action_id": "history_days_7",
+                        "value": "7",
+                    },
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "過去30日"},
+                        "action_id": "history_days_30",
+                        "value": "30",
+                    },
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "全期間"},
+                        "action_id": "history_days_all",
+                        "value": "all",
+                    },
+                ],
+            },
+            {"type": "divider"},
+            {"type": "section", "text": {"type": "mrkdwn", "text": "（まだ期間が選択されていません）"}},
+        ],
+    }
+
+
 def register_clean_list(app):
     # ★ 2) CleaningLog テーブルが無い環境でも安全に起動
     try:
         db.create_tables([CleaningLog])
     except Exception:
         pass
+
+    def _post_clean_select(client, channel_id):
+        blocks = [
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": "どこを掃除しましたか？"},
+                "accessory": {
+                    "type": "static_select",
+                    "action_id": "select_location",
+                    "placeholder": {"type": "plain_text", "text": "掃除箇所を選択"},
+                    "options": [
+                        {"text": {"type": "plain_text", "text": loc}, "value": loc} for loc in CLEAN_LOCATIONS
+                    ],
+                },
+            }
+        ]
+        client.chat_postMessage(channel=channel_id, blocks=blocks, text="掃除箇所を選んでください")
 
     # ====== 掃除チェック ======
     @app.action("check_cleaning")
@@ -177,7 +232,7 @@ def register_clean_list(app):
         user_id = body["user"]["id"]
         channel_id = (body.get("channel") or {}).get("id")
         if not channel_id:
-            opened = client.conversations_open(users=[user_id])
+            opened = client.conversations_open(users=user_id)
             channel_id = opened["channel"]["id"]
 
         blocks = [
@@ -195,6 +250,15 @@ def register_clean_list(app):
             }
         ]
         client.chat_postMessage(channel=channel_id, blocks=blocks, text="掃除箇所を選んでください")
+
+        # @メンションで「掃除」などを含むときも同じUIを出す
+
+    @app.event("app_mention")
+    def on_mention_clean(event, client, logger):
+        text = event.get("text", "")
+        if any(k in text for k in ("掃除チェック")):
+            channel_id = event["channel"]
+            _post_clean_select(client, channel_id)
 
     @app.action("select_location")
     def handle_location_selection(ack, body, client, logger):
@@ -247,15 +311,26 @@ def register_clean_list(app):
     @app.action("cleaning_history")
     def open_history_modal(ack, body, client, logger):
         ack()
-        client.views_open(trigger_id=body["trigger_id"], view=_build_history_modal(days=7))
+        try:
+            client.views_open(trigger_id=body["trigger_id"], view=_build_history_modal_empty())
+        except Exception as e:
+            logger.exception("cleaning_history failed")
+            # エラー内容をDMでも通知（Homeからの押下でchannelが無い場合があるため）
+            try:
+                ch = client.conversations_open(users=body["user"]["id"])["channel"]["id"]
+                client.chat_postMessage(channel=ch, text=f"履歴モーダルでエラー: {e}")
+            except Exception:
+                pass
 
-    @app.action("history_set_days")
+    @app.action("history_days_7")
+    @app.action("history_days_30")
+    @app.action("history_days_all")
     def change_history_range(ack, body, client, logger):
         ack()
-        val = body["actions"][0]["value"]
+        val = body["actions"][0]["value"]  # "7" / "30" / "all"
         days = None if val == "all" else int(val)
         client.views_update(
             view_id=body["view"]["id"],
-            hash=body["view"]["hash"],  # 同時更新の競合を避ける
+            hash=body["view"]["hash"],
             view=_build_history_modal(days=days),
         )
