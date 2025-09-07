@@ -249,17 +249,10 @@ def build_home_blocks(client, week_offset_days: int = 0) -> list:
                 },
                 {
                     "type": "button",
-                    "text": {"type": "plain_text", "text": "📖 マニュアル"},
+                    "text": {"type": "plain_text", "text": "📖 利用の手引き"},
                     # PDFのURL リンク貼り直せば更新可能
                     "url": "https://drive.google.com/file/d/1t3riT_PCh5vqPKxbQNg82AsrVli2BRkf/view?usp=drive_link",
                     "action_id": "open_manuals",
-                },
-                {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "📄 シェアハウス申請書"},
-                    # PDFのURL リンク貼り直せば更新可能
-                    "url": "https://drive.google.com/file/d/1bG5E1KUM27Sck_a7hMc4zkfhXeEFReDd/view?usp=sharing",
-                    "action_id": "open_form",
                 },
                 {
                     "type": "button",
@@ -282,6 +275,13 @@ def build_home_blocks(client, week_offset_days: int = 0) -> list:
                     "text": {"type": "plain_text", "text": "🗂️ 掃除履歴"},
                     "action_id": "cleaning_history",
                     "value": "open",
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "📄 使用許可（変更）申請書"},
+                    # PDFのURL リンク貼り直せば更新可能
+                    "url": "https://drive.google.com/file/d/1bG5E1KUM27Sck_a7hMc4zkfhXeEFReDd/view?usp=sharing",
+                    "action_id": "open_form",
                 },
             ],
         },
